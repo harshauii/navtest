@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Secure Login</title>
+    <style>
+        /* Same CSS as provided */
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>Welcome Back</h1>
+            <p>Securely sign in to your account</p>
+        </div>
+        <button class="google-btn" id="loginBtn">
+            <span class="icon"></span>
+            <span class="btn-text">Continue with Google</span>
+            <div class="loading-spinner"></div>
+        </button>
+        <div id="status" class="status-message"></div>
+        <p class="privacy-link">
+            By continuing, you agree to our <a href="#">Privacy Policy</a>
+        </p>
+    </div>
+
+    <script type="module">
+        import { auth } from './firebase-config.js';
+        import { 
+            signInWithPopup, 
+            GoogleAuthProvider, 
+            setPersistence, 
+            browserSessionPersistence 
+        } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+
+        const provider = new GoogleAuthProvider();
+        setPersistence(auth, browserSessionPersistence).catch(error => {
+            console.error("Persistence error:", error);
+            showError("Authentication setup failed. Please refresh the page.");
+        });
+
+        const loginBtn = document.getElementById("loginBtn");
+        const status = document.getElementById("status");
+        const btnText = loginBtn.querySelector('.btn-text');
+        const spinner = loginBtn.querySelector('.loading-spinner');
+
+        const showError = (message) => {
+            status.classList.remove('success');
+            status.classList.add('error', 'visible');
+            status.textContent = message;
+        };
+
+        const handleLogin = async () => {
+            btnText.style.opacity = '0';
+            spinner.style.display = 'block';
+            loginBtn.disabled = true;
+
+            try {
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
+                status.classList.remove('error');
+                status.classList.add('success', 'visible');
+                status.innerHTML = `✅ Signed in as <strong>${user.displayName}</strong><br>Redirecting to dashboard...`;
+                await auth.authStateReady();
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html';
+                }, 1500);
+            } catch (error) {
+                console.error('Login error:', error);
+                const message = error.code === 'auth/popup-closed-by-user' 
+                    ? 'Sign in process canceled' 
+                    : 'Sign in failed. Please try again.';
+                showError(message);
+            } finally {
+                btnText.style.opacity = '1';
+                spinner.style.display = 'none';
+                loginBtn.disabled = false;
+            }
+        };
+
+        loginBtn.addEventListener("click", () => {
+            if (!navigator.onLine) {
+                showError("No internet connection. Please check your network.");
+                return;
+            }
+            handleLogin();
+        });
+
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                window.location.href = 'dashboard.html';
+            }
+        });
+    </script>
+</body>
+</html>
